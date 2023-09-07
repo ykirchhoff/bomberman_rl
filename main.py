@@ -94,7 +94,8 @@ def world_controller(world, n_rounds, *,
     world.end()
 
 
-def main(argv = ["play", "--agents", "user_agent", "basic_agent", "--turn-based"]):
+#def main(argv = ["play", "--my-agent", "basic_agent", "--update-interval", "0.5"]):
+def main(argv = ["play", "--my-agent", "basic_agent", "--no-gui", "--train", "1", "--n-rounds", "100000"]):
     parser = ArgumentParser()
 
     subparsers = parser.add_subparsers(dest='command_name', required=True)

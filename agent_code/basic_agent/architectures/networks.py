@@ -5,7 +5,7 @@ from torch import nn
 class ConvBlock(nn.Module):
     """Basic convolutional block"""
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, norm=nn.InstanceNorm2d, 
-                 norm_kwargs={}, nonlin=nn.LeakyReLU, nonlin_kwargs={}, num_convs=2) -> None:
+                 norm_kwargs={}, nonlin=nn.LeakyReLU, nonlin_kwargs={"inplace": True}, num_convs=2) -> None:
         super().__init__()
         self.convs = nn.ModuleList([nn.Sequential(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding=1),
                                                    norm(out_channels, **norm_kwargs))])
@@ -24,7 +24,7 @@ class ConvBlock(nn.Module):
 class ResBlock(nn.Module):
     """Residual block for ResNet like architectures"""
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, norm=nn.InstanceNorm2d, 
-                 norm_kwargs={}, nonlin=nn.LeakyReLU, nonlin_kwargs={}, num_convs=2) -> None:
+                 norm_kwargs={"affine": True}, nonlin=nn.LeakyReLU, nonlin_kwargs={}, num_convs=2) -> None:
         super().__init__()
         self.nonlin = nonlin(**nonlin_kwargs)
         self.convs = nn.ModuleList([nn.Sequential(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding=1),
@@ -83,12 +83,15 @@ class MyResNetBinary(MyResNet):
     def __init__(self, in_channels: int, num_actions: int, depth: int, num_base_channels: int, 
                  num_max_channels: int, blocks_per_layer: int|list=2, num_binary: int=1) -> None:
         super().__init__(in_channels, num_actions, depth, num_base_channels, num_max_channels, blocks_per_layer)
-        self.final = nn.Sequential(nn.AdaptiveAvgPool2d(1), nn.Flatten(), nn.Linear(self.out_channels + num_binary, num_actions))
+        self.prefinal = nn.Sequential(nn.AdaptiveAvgPool2d(1), nn.Flatten())
+        self.final = nn.Sequential(nn.Linear(self.out_channels + num_binary, self.out_channels),
+                                   nn.LeakyReLU(inplace=True), nn.Linear(self.out_channels, num_actions))
 
-    def forward(self, x, x_bin):
+    def forward(self, x, x_bin=None):
         x = self.stem(x)
         for down in self.downs:
             x = down(x)
+        x = self.prefinal(x)
         x = torch.cat((x, x_bin), dim=1)
         return self.final(x)
 
@@ -96,6 +99,6 @@ class MyResNetBinary(MyResNet):
 if __name__ == "__main__":
     model = MyResNet(1, 2, 4, 8, 64, [4, 7, 7, 4]).to("cuda")
     print(model)
-    x = torch.randn(1, 1, 64, 64, 64).to("cuda")
+    x = torch.randn(1, 1, 64, 64).to("cuda")
     y = model(x)
     print(y.shape)

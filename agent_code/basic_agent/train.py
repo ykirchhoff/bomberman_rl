@@ -31,8 +31,9 @@ REPLAY_MEMORY_SIZE = 50000
 BATCH_SIZE = 256
 GAMMA = 0.9
 EPS_START = 0.9
+EPS_START_CYCLE = 0.5
 EPS_END = 0.05
-EPS_DECAY = 10000
+EPS_DECAY = 5000
 TAU = 0.001
 INITIAL_LR = 1e-4
 
@@ -82,7 +83,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
         self.ema_rewards_per_step.append(0.99 * self.ema_rewards_per_step[-1] + 0.01 * self.rewards_per_step[-1])
     optimize_model(self)
     plot_and_save(self)
-    update_eps(self)
+    update_eps(self, mode="cycle")
     self.total_rewards.append(0)
     target_state_dict = self.target_model.state_dict()
     policy_state_dict = self.model.state_dict()
@@ -149,9 +150,28 @@ def optimize_model(self, steps=10):
     self.scheduler.step()
 
 
-def update_eps(self):
+def update_eps(self, mode="decay"):
+    """
+    mode can either be 'decay' or 'cycle'
+    'decay' decreases epsilon exponentially over EPS_DECAY steps
+    'cycle' cycles epsilon with period EPS_DECAY. after first cycle, eps is only increased up to EPS_START_CYCLE
+    """
     self.steps_done += 1
-    self.eps = EPS_END + (EPS_START - EPS_END) * np.exp(-1. * self.steps_done / EPS_DECAY)
+    if mode == "decay":
+        self.eps = EPS_END + (EPS_START - EPS_END) * np.exp(-1. * self.steps_done / EPS_DECAY)
+    elif mode == "cycle":
+        # self.eps decay over 0.9*EPS_DECAY steps, then increases linearly over 0.1*EPS_DECAY steps
+        steps_cycle = self.steps_done % EPS_DECAY
+        if steps_cycle < 0.9 * EPS_DECAY:
+            if self.steps_done // EPS_DECAY == 0:
+                # decay from EPS_START to EPS_END
+                self.eps = EPS_END + (EPS_START - EPS_END) * np.exp(-3. * steps_cycle / EPS_DECAY)
+            else:
+                # decay from EPS_START_CYCLE to EPS_END
+                self.eps = EPS_END + (EPS_START_CYCLE - EPS_END) * np.exp(-3. * steps_cycle / EPS_DECAY)
+        else:
+            # increase from EPS_END to EPS_START_CYCLE
+            self.eps = EPS_END + (EPS_START_CYCLE - EPS_END) * (steps_cycle - 0.9 * EPS_DECAY) / (0.1 * EPS_DECAY)
     self.epsilons.append(self.eps)
 
 

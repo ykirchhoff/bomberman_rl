@@ -4,6 +4,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
+import pickle
 import random
 from typing import List
 
@@ -35,6 +36,7 @@ EPS_END = 0.05
 EPS_DECAY = 5000
 TAU = 0.001
 INITIAL_LR = 1e-4
+ITERATIONS_PER_ROUND = 100
 
 # This is only an example!
 Transition = namedtuple('Transition',
@@ -106,7 +108,7 @@ def reward_from_events(self, events: List[str]) -> int:
         e.COIN_COLLECTED: 20,
         e.CRATE_DESTROYED: 10,
         e.SURVIVED_ROUND: 10,
-        e.KILLED_OPPONENT: 100,
+        e.KILLED_OPPONENT: 200,
         e.KILLED_SELF: -100,
         e.GOT_KILLED: -50,
         e.INVALID_ACTION: -100,
@@ -124,11 +126,11 @@ def reward_from_events(self, events: List[str]) -> int:
     return reward_sum
 
 
-def optimize_model(self, steps=10):
-    if len(self.replay_memory) < steps*BATCH_SIZE:
+def optimize_model(self):
+    if len(self.replay_memory) < ITERATIONS_PER_ROUND*BATCH_SIZE:
         return
     
-    for _ in range(steps):
+    for _ in range(ITERATIONS_PER_ROUND):
         transitions = random.sample(self.replay_memory, BATCH_SIZE)
         batch = Transition(*zip(*transitions))
 
@@ -171,8 +173,8 @@ def update_eps(self):
     elif self.eps_mode == "cycle":
         # cycling decay of eps over EPS_DECAY steps
         steps_cycle = self.steps_done % EPS_DECAY
-        current_eps_max = (EPS_START - EPS_END) * 0.9 ** (self.steps_done // EPS_DECAY)
-        self.eps = EPS_END + (current_eps_max) * np.exp(-2. * steps_cycle / EPS_DECAY)
+        delta_eps_max = (EPS_START - EPS_END) * 0.9 ** (self.steps_done // EPS_DECAY)
+        self.eps = EPS_END + (delta_eps_max) * np.exp(-2. * steps_cycle / EPS_DECAY)
     else:
         raise NotImplementedError(f"mode {self.eps_mode} not implemented")
 
@@ -184,11 +186,13 @@ def plot_and_save(self):
         plt.title("total rewards")
         plt.plot(self.total_rewards, label="reward")
         plt.plot(self.ema_total_rewards, label="ema reward")
+        plt.plot([0]*len(self.total_rewards), color="black", linestyle="--")
         plt.legend()
         plt.subplot(312)
         plt.title("rewards per step")
         plt.plot(self.rewards_per_step, label="reward")
         plt.plot(self.ema_rewards_per_step, label="ema reward")
+        plt.plot([0]*len(self.rewards_per_step), color="black", linestyle="--")
         plt.legend()
         plt.subplot(313)
         plt.plot(self.epsilons)
@@ -198,3 +202,9 @@ def plot_and_save(self):
     if (self.steps_done + 1) % 500 == 0:
         torch.save(self.model.state_dict(), self.model_dir_every_x/f"model_{self.steps_done + 1}.pth")
         torch.save(self.model.state_dict(), self.model_dir/"model_final.pth")
+        torch.save(self.target_model.state_dict(), self.model_dir/"target_model_final.pth")
+        training_state = {"steps_done": self.steps_done, "eps": self.epsilons, "total_rewards": self.total_rewards, \
+                          "rewards_per_step": self.rewards_per_step, "ema_total_rewards": self.ema_total_rewards, \
+                          "ema_rewards_per_step": self.ema_rewards_per_step}
+        with open("logs/training_state.pickle", "wb") as f:
+            pickle.dump(training_state, f)

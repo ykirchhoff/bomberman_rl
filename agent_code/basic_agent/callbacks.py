@@ -15,11 +15,10 @@ def setup(self):
     self.eps = 0
     self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     self.model_dir = Path("models")
-    self.model_dir.mkdir(exist_ok=True)
     self.model = MyResNetBinary(in_channels=4, num_actions=len(ACTIONS), depth=3, num_base_channels=32, num_max_channels=512,
                                 blocks_per_layer=2, num_binary=1)
     if not self.train:
-        self.model.load_state_dict(torch.load(self.model_dir/"model_1000.pth"))
+        self.model.load_state_dict(torch.load(self.model_dir/"model_final.pth"))
     self.model.to(self.device)
     setup_rule_based(self)
 

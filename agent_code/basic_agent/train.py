@@ -31,7 +31,6 @@ REPLAY_MEMORY_SIZE = 50000
 BATCH_SIZE = 256
 GAMMA = 0.9
 EPS_START = 0.9
-EPS_START_CYCLE = 0.5
 EPS_END = 0.05
 EPS_DECAY = 5000
 TAU = 0.001
@@ -43,6 +42,9 @@ Transition = namedtuple('Transition',
 
 
 def setup_training(self):
+    self.model_dir.mkdir(exist_ok=True)
+    self.model_dir_every_x = self.model_dir / "every_x"
+    self.model_dir_every_x.mkdir(exist_ok=True)
     self.replay_memory = deque(maxlen=REPLAY_MEMORY_SIZE)
     self.steps_done = 0
     self.eps = EPS_START
@@ -57,7 +59,8 @@ def setup_training(self):
     self.ema_total_rewards = []
     self.rewards_per_step = []
     self.ema_rewards_per_step = []
-    self.epsilons = [self.eps]
+    self.epsilons = []
+    self.eps_mode = "cycle"
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
@@ -82,8 +85,8 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     else:
         self.ema_rewards_per_step.append(0.99 * self.ema_rewards_per_step[-1] + 0.01 * self.rewards_per_step[-1])
     optimize_model(self)
+    update_eps(self)
     plot_and_save(self)
-    update_eps(self, mode="cycle")
     self.total_rewards.append(0)
     target_state_dict = self.target_model.state_dict()
     policy_state_dict = self.model.state_dict()
@@ -155,29 +158,23 @@ def optimize_model(self, steps=10):
     self.scheduler.step()
 
 
-def update_eps(self, mode="decay"):
+def update_eps(self):
     """
     mode can either be 'decay' or 'cycle'
     'decay' decreases epsilon exponentially over EPS_DECAY steps
     'cycle' cycles epsilon with period EPS_DECAY. after first cycle, eps is only increased up to EPS_START_CYCLE
     """
-    self.steps_done += 1
-    if mode == "decay":
-        self.eps = EPS_END + (EPS_START - EPS_END) * np.exp(-1. * self.steps_done / EPS_DECAY)
-    elif mode == "cycle":
-        # self.eps decay over 0.9*EPS_DECAY steps, then increases linearly over 0.1*EPS_DECAY steps
-        steps_cycle = self.steps_done % EPS_DECAY
-        if steps_cycle < 0.9 * EPS_DECAY:
-            if self.steps_done // EPS_DECAY == 0:
-                # decay from EPS_START to EPS_END
-                self.eps = EPS_END + (EPS_START - EPS_END) * np.exp(-3. * steps_cycle / EPS_DECAY)
-            else:
-                # decay from EPS_START_CYCLE to EPS_END
-                self.eps = EPS_END + (EPS_START_CYCLE - EPS_END) * np.exp(-3. * steps_cycle / EPS_DECAY)
-        else:
-            # increase from EPS_END to EPS_START_CYCLE
-            self.eps = EPS_END + (EPS_START_CYCLE - EPS_END) * (steps_cycle - 0.9 * EPS_DECAY) / (0.1 * EPS_DECAY)
     self.epsilons.append(self.eps)
+    self.steps_done += 1
+    if self.eps_mode == "decay":
+        self.eps = EPS_END + (EPS_START - EPS_END) * np.exp(-1. * self.steps_done / EPS_DECAY)
+    elif self.eps_mode == "cycle":
+        # cycling decay of eps over EPS_DECAY steps
+        steps_cycle = self.steps_done % EPS_DECAY
+        current_eps_max = (EPS_START - EPS_END) * 0.9 ** (self.steps_done // EPS_DECAY)
+        self.eps = EPS_END + (current_eps_max) * np.exp(-2. * steps_cycle / EPS_DECAY)
+    else:
+        raise NotImplementedError(f"mode {self.eps_mode} not implemented")
 
 
 def plot_and_save(self):
@@ -199,4 +196,5 @@ def plot_and_save(self):
         plt.savefig("logs/rewards.png")
         plt.close()
     if (self.steps_done + 1) % 500 == 0:
-        torch.save(self.model.state_dict(), f"models/model_{self.steps_done + 1}.pth")
+        torch.save(self.model.state_dict(), self.model_dir_every_x/f"model_{self.steps_done + 1}.pth")
+        torch.save(self.model.state_dict(), self.model_dir/"model_final.pth")

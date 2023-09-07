@@ -28,7 +28,7 @@ ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
 # hyperparameters
 REPLAY_MEMORY_SIZE = 10000
-BATCH_SIZE = 64
+BATCH_SIZE = 256
 GAMMA = 0.9
 EPS_START = 0.9
 EPS_END = 0.05
@@ -64,7 +64,6 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     self.replay_memory.append(Transition(*state_to_features(old_game_state), torch.tensor([ACTIONS.index(self_action)]), \
                                          *state_to_features(new_game_state), torch.tensor([reward])))
     self.total_rewards[-1] += reward
-    optimize_model(self)
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):

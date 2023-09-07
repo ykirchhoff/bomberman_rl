@@ -36,11 +36,14 @@ EPS_END = 0.05
 EPS_DECAY = 5000
 TAU = 0.001
 INITIAL_LR = 1e-4
-ITERATIONS_PER_ROUND = 100
+ITERATIONS_PER_ROUND = 20
 
 # This is only an example!
 Transition = namedtuple('Transition',
                         ('img_state', 'binary_state', 'action', 'next_img_state', 'next_binary_state', 'reward'))
+
+MOVE_AWAY = "MOVE_AWAY"
+MOVE_TOWARDS = "MOVE_TOWARDS"
 
 
 def setup_training(self):
@@ -67,8 +70,21 @@ def setup_training(self):
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
     reward = reward_from_events(self, events)
-    self.replay_memory.append(Transition(*state_to_features(old_game_state), torch.tensor([ACTIONS.index(self_action)]), \
-                                         *state_to_features(new_game_state), torch.tensor([reward])))
+    old_features = state_to_features(old_game_state)
+    new_features = state_to_features(new_game_state)
+    old_field = old_features[0][0]
+    old_coins_and_agents = old_features[0][2]
+    new_field = new_features[0][0]
+    new_coins_and_agents = new_features[0][2]
+    old_nearest_coin_or_agent = old_field[old_coins_and_agents!=0].min()
+    new_nearest_coin_or_agent = new_field[new_coins_and_agents!=0].min()
+    if new_nearest_coin_or_agent > 0 and old_nearest_coin_or_agent > 0:
+        if new_nearest_coin_or_agent < old_nearest_coin_or_agent:
+            events.append(MOVE_TOWARDS)
+        elif new_nearest_coin_or_agent > old_nearest_coin_or_agent:
+            events.append(MOVE_AWAY)
+    self.replay_memory.append(Transition(*old_features, torch.tensor([ACTIONS.index(self_action)]), \
+                                         *new_features, torch.tensor([reward])))
     self.total_rewards[-1] += reward
 
 
@@ -107,16 +123,14 @@ def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
         e.COIN_COLLECTED: 20,
         e.CRATE_DESTROYED: 10,
-        e.SURVIVED_ROUND: 10,
+        e.SURVIVED_ROUND: 50,
         e.KILLED_OPPONENT: 200,
         e.KILLED_SELF: -100,
         e.GOT_KILLED: -50,
         e.INVALID_ACTION: -100,
-        e.WAITED: -2,
-        e.MOVED_UP: -1,
-        e.MOVED_DOWN: -1,
-        e.MOVED_LEFT: -1,
-        e.MOVED_RIGHT: -1,
+        e.WAITED: -5,
+        MOVE_AWAY: -5,
+        MOVE_TOWARDS: 4
     }
     reward_sum = 0
     for event in events:

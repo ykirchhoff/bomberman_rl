@@ -27,7 +27,7 @@ ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
 
 # hyperparameters
-REPLAY_MEMORY_SIZE = 10000
+REPLAY_MEMORY_SIZE = 50000
 BATCH_SIZE = 256
 GAMMA = 0.9
 EPS_START = 0.9
@@ -42,7 +42,7 @@ Transition = namedtuple('Transition',
 
 
 def setup_training(self):
-    self.replay_memory = deque(maxlen=10000)
+    self.replay_memory = deque(maxlen=REPLAY_MEMORY_SIZE)
     self.steps_done = 0
     self.eps = EPS_START
     self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=INITIAL_LR, amsgrad=True)
@@ -115,36 +115,37 @@ def reward_from_events(self, events: List[str]) -> int:
     return reward_sum
 
 
-def optimize_model(self):
-    if len(self.replay_memory) < 2*BATCH_SIZE:
+def optimize_model(self, steps=10):
+    if len(self.replay_memory) < steps*BATCH_SIZE:
         return
     
-    transitions = random.sample(self.replay_memory, BATCH_SIZE)
-    batch = Transition(*zip(*transitions))
+    for _ in range(steps):
+        transitions = random.sample(self.replay_memory, BATCH_SIZE)
+        batch = Transition(*zip(*transitions))
 
-    non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_img_state)), device=self.device, dtype=torch.bool)
-    non_final_next_img_states = torch.stack([s for s in batch.next_img_state if s is not None]).to(dtype=torch.float32, device=self.device)
-    non_final_next_binary_states = torch.stack([s for s in batch.next_binary_state if s is not None]).to(dtype=torch.float32, device=self.device)
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_img_state)), device=self.device, dtype=torch.bool)
+        non_final_next_img_states = torch.stack([s for s in batch.next_img_state if s is not None]).to(dtype=torch.float32, device=self.device)
+        non_final_next_binary_states = torch.stack([s for s in batch.next_binary_state if s is not None]).to(dtype=torch.float32, device=self.device)
 
-    img_state_batch = torch.stack(batch.img_state).to(dtype=torch.float32, device=self.device)
-    binary_state_batch = torch.stack(batch.binary_state).to(dtype=torch.float32, device=self.device)
-    action_batch = torch.stack(batch.action).to(device=self.device)
-    reward_batch = torch.stack(batch.reward).to(device=self.device)
+        img_state_batch = torch.stack(batch.img_state).to(dtype=torch.float32, device=self.device)
+        binary_state_batch = torch.stack(batch.binary_state).to(dtype=torch.float32, device=self.device)
+        action_batch = torch.stack(batch.action).to(device=self.device)
+        reward_batch = torch.stack(batch.reward).to(device=self.device)
 
-    state_action_values = self.model(img_state_batch, binary_state_batch).gather(1, action_batch)
-    
-    next_state_values = torch.zeros(BATCH_SIZE, 1, device=self.device)
-    with torch.no_grad():
-        next_state_values[non_final_mask] = self.target_model(non_final_next_img_states, non_final_next_binary_states).max(1, keepdim=True)[0]
-    
-    expected_state_action_values = (next_state_values * GAMMA) + reward_batch
+        state_action_values = self.model(img_state_batch, binary_state_batch).gather(1, action_batch)
+        
+        next_state_values = torch.zeros(BATCH_SIZE, 1, device=self.device)
+        with torch.no_grad():
+            next_state_values[non_final_mask] = self.target_model(non_final_next_img_states, non_final_next_binary_states).max(1, keepdim=True)[0]
+        
+        expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
-    loss = self.criterion(state_action_values, expected_state_action_values)
+        loss = self.criterion(state_action_values, expected_state_action_values)
 
-    self.optimizer.zero_grad()
-    loss.backward()
-    torch.nn.utils.clip_grad_norm_(self.model.parameters(), 100)
-    self.optimizer.step()
+        self.optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 100)
+        self.optimizer.step()
     self.scheduler.step()
 
 

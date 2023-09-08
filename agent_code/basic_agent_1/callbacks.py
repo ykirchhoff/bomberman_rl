@@ -15,7 +15,7 @@ def setup(self):
     self.eps = 0
     self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     self.model_dir = Path("models")
-    self.model = MyResNetBinary(in_channels=4, num_actions=len(ACTIONS), depth=3, num_base_channels=32, num_max_channels=512,
+    self.model = MyResNetBinary(in_channels=5, num_actions=len(ACTIONS), depth=3, num_base_channels=32, num_max_channels=512,
                                 blocks_per_layer=2, num_binary=1)
     if not self.train:
         self.model.load_state_dict(torch.load(self.model_dir/"model_final.pth"))
@@ -25,11 +25,11 @@ def setup(self):
 
 def act(self, game_state: dict) -> str:
     if self.train and np.random.random() < self.eps:
-        if np.random.random() < 0.5:
-            self.logger.debug("Choosing action purely at random.")
-            return np.random.choice(ACTIONS)
-        self.logger.debug("Acting according to rule based agent.")
-        return act_rule_based(self, game_state)
+        if np.random.random() < self.eps_rb:
+            self.logger.debug("Acting according to rule based agent.")
+            return act_rule_based(self, game_state)
+        self.logger.debug("Choosing action purely at random.")
+        return np.random.choice(ACTIONS)
 
     with torch.no_grad():
         self.logger.debug("Querying model for action.")
@@ -88,11 +88,11 @@ def state_to_features(game_state: dict) -> np.array:
     # 0 is no danger, 4 is max danger
     for bomb in bombs:
         bombs_features[bomb[0]] = 4-bomb[1]
-    coins_and_agents = np.zeros_like(field_features)
-    # 1 for coins, -1 for other agents
+    coin_features = np.zeros_like(field_features)
+    agent_features = np.zeros_like(field_features)
     for coin in coins:
-        coins_and_agents[coin] = 1
+        coin_features[coin] = 1
     for other_pos in others_pos:
-        coins_and_agents[other_pos] = -1
-    features = np.stack([field_features, bombs_features, coins_and_agents, explosion_map])
+        agent_features[other_pos] = 1
+    features = np.stack([field_features, bombs_features, explosion_map, coin_features, agent_features])
     return torch.tensor(features), torch.tensor([agent_bomb])

@@ -93,11 +93,26 @@ def world_controller(world, n_rounds, *,
 
     world.end()
 
-
-#def main(argv = ["play", "--agents", "basic_agent", "basic_agent", "rule_based_agent", \
+# scenario 1
+def main(argv = ["play", "--agents", "basic_agent", "--no-gui", "--train", "1", "--n-rounds", "50000", "--scenario", "scenario1"]):
+# scenario 2
+#def main(argv = ["play", "--agents", "basic_agent", "--no-gui", "--train", "1", "--n-rounds", "50000"]):
+# scenario 3
+#def main(argv = ["play", "--agents", "basic_agent", "peaceful_agent", "coin_collector_agent", \
+#                 "rule_based_agent", "--no-gui", "--train", "1", "--n-rounds", "50000"]):
+# final
+#def main(argv = ["play", "--agents", "basic_agent", "rule_based_agent", "rule_based_agent", \
+#                 "rule_based_agent", "--no-gui", "--train", "1", "--n-rounds", "50000"]):
+# test scenario 1
+#def main(argv = ["play", "--agents", "basic_agent", "--update-interval", "0.5", "--scenario", "scenario1"]):
+# test scenario 2
+#def main(argv = ["play", "--agents", "basic_agent", "--update-interval", "0.5"]):
+# test scenario 3
+#def main(argv = ["play", "--agents", "basic_agent", "peaceful_agent", "coin_collector_agent", \
 #                 "rule_based_agent", "--update-interval", "0.5"]):
-def main(argv = ["play", "--agents", "basic_agent", "rule_based_agent", "rule_based_agent", \
-                 "rule_based_agent", "--no-gui", "--train", "1", "--n-rounds", "50000"]):
+# test final
+#def main(argv = ["play", "--agents", "basic_agent", "rule_based_agent", "rule_based_agent", \
+#                 "rule_based_agent", "--update-interval", "0.5"]):
     parser = ArgumentParser()
 
     subparsers = parser.add_subparsers(dest='command_name', required=True)

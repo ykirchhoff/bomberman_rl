@@ -93,25 +93,13 @@ def world_controller(world, n_rounds, *,
 
     world.end()
 
-# scenario 1
-def main(argv = ["play", "--agents", "basic_agent", "--no-gui", "--train", "1", "--n-rounds", "50000", "--scenario", "coin-heaven"]):
-# scenario 2
-#def main(argv = ["play", "--agents", "basic_agent", "--no-gui", "--train", "1", "--n-rounds", "50000"]):
-# scenario 3
-#def main(argv = ["play", "--agents", "basic_agent", "peaceful_agent", "coin_collector_agent", \
-#                 "rule_based_agent", "--no-gui", "--train", "1", "--n-rounds", "50000"]):
+def main(argv = ["play", "--agents", "basic_agent_1", "--no-gui", "--train", "1", "--n-rounds", "50000", "--scenario", "coin-heaven"]):
+#def main(argv = ["play", "--agents", "basic_agent_1", "--update-interval", "0.5", "--scenario", "coin-heaven"]):
 # final
-#def main(argv = ["play", "--agents", "basic_agent", "rule_based_agent", "rule_based_agent", \
+#def main(argv = ["play", "--agents", "basic_agent_final", "rule_based_agent", "rule_based_agent", \
 #                 "rule_based_agent", "--no-gui", "--train", "1", "--n-rounds", "50000"]):
-# test scenario 1
-#def main(argv = ["play", "--agents", "basic_agent", "--update-interval", "0.5", "--scenario", "scenario1"]):
-# test scenario 2
-#def main(argv = ["play", "--agents", "basic_agent", "--update-interval", "0.5"]):
-# test scenario 3
-#def main(argv = ["play", "--agents", "basic_agent", "peaceful_agent", "coin_collector_agent", \
-#                 "rule_based_agent", "--update-interval", "0.5"]):
 # test final
-#def main(argv = ["play", "--agents", "basic_agent", "rule_based_agent", "rule_based_agent", \
+#def main(argv = ["play", "--agents", "basic_agent_final", "rule_based_agent", "rule_based_agent", \
 #                 "rule_based_agent", "--update-interval", "0.5"]):
     parser = ArgumentParser()
 

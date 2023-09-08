@@ -232,7 +232,7 @@ def plot_and_save(self):
         plt.title("epsilon")
         plt.savefig("logs/rewards.png")
         plt.close()
-    if (self.steps_done + 1) % 500 == 0:
+    if (self.steps_done + 1) % 100 == 0:
         torch.save(self.model.state_dict(), self.model_dir_every_x/f"model_{self.steps_done + 1}.pth")
         torch.save(self.model.state_dict(), self.model_dir/"model_final.pth")
         torch.save(self.target_model.state_dict(), self.model_dir/"target_model_final.pth")

@@ -94,7 +94,7 @@ def world_controller(world, n_rounds, *,
     world.end()
 
 # scenario 1
-def main(argv = ["play", "--agents", "basic_agent", "--no-gui", "--train", "1", "--n-rounds", "50000", "--scenario", "scenario1"]):
+def main(argv = ["play", "--agents", "basic_agent", "--no-gui", "--train", "1", "--n-rounds", "50000", "--scenario", "coin-heaven"]):
 # scenario 2
 #def main(argv = ["play", "--agents", "basic_agent", "--no-gui", "--train", "1", "--n-rounds", "50000"]):
 # scenario 3

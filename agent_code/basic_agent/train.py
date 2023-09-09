@@ -32,10 +32,11 @@ REPLAY_MEMORY_SIZE = 200000
 BATCH_SIZE = 256
 GAMMA = 0.9
 EPS_START = 0.9
+EPS_RB_START = 0.5
 EPS_END = 0.05
 EPS_DECAY = 5000
 TAU = 0.001
-INITIAL_LR = 1e-4
+INITIAL_LR = 1e-3
 ITERATIONS_PER_ROUND = 20
 LONG_UPDATE_EVERY_X = 100
 ITERATIONS_EVERY_X = 500
@@ -57,7 +58,7 @@ def setup_training(self):
     self.steps_done = 0
     self.eps = EPS_START
     self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=INITIAL_LR, amsgrad=True)
-    self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10000, gamma=0.9)
+    self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=5000, gamma=0.9)
     self.target_model = MyResNetBinary(in_channels=5, num_actions=len(ACTIONS), depth=3, num_base_channels=32, num_max_channels=512,
                                        blocks_per_layer=2, num_binary=1)
     self.target_model.load_state_dict(self.model.state_dict())
@@ -69,15 +70,30 @@ def setup_training(self):
     self.ema_rewards_per_step = []
     self.epsilons = []
     self.eps_mode = "cycle"
-    self.eps_rb = EPS_START
+    self.eps_rb = EPS_RB_START
     self.loss_list = []
     self.previous_action = None
+    self.model.train()
+    self.target_model.eval()
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
     reward = reward_from_events(self, events)
     old_img_features, old_binary_features = state_to_features(old_game_state)
     new_img_features, new_binary_features = state_to_features(new_game_state)
+    old_field = old_img_features[0]
+    old_coins = old_img_features[3]
+    new_field = new_img_features[0]
+    new_coins = new_img_features[3]
+    old_coin_dist = old_field[old_coins == 1]
+    new_coin_dist = new_field[new_coins == 1]
+    old_nearest_coin = torch.tensor([-1]) if torch.sum(old_coin_dist>0)==0 else torch.min(old_coin_dist[old_coin_dist>0])
+    new_nearest_coin = torch.tensor([-1]) if torch.sum(new_coin_dist>0)==0 else torch.min(new_coin_dist[new_coin_dist>0])
+    if torch.abs(old_nearest_coin-new_nearest_coin)==1:
+        if new_nearest_coin < old_nearest_coin:
+            events.append(MOVE_TOWARDS)
+        elif new_nearest_coin > old_nearest_coin:
+            events.append(MOVE_AWAY)
     action = ACTIONS.index(self_action)
     if self.previous_action is not None:
         if (self_action == ACTIONS[0] and self.previous_action == ACTIONS[2]) or \
@@ -121,7 +137,7 @@ def reward_from_events(self, events: List[str]) -> int:
     certain behavior.
     """
     game_rewards = {
-        e.COIN_COLLECTED: 20,
+        e.COIN_COLLECTED: 40,
         e.CRATE_DESTROYED: 10,
         e.SURVIVED_ROUND: 50,
         e.KILLED_OPPONENT: 200,
@@ -129,8 +145,8 @@ def reward_from_events(self, events: List[str]) -> int:
         e.GOT_KILLED: -50,
         e.INVALID_ACTION: -100,
         e.WAITED: -10,
-        MOVE_AWAY: -5,
-        MOVE_TOWARDS: 4,
+        MOVE_AWAY: -30,
+        MOVE_TOWARDS: 20,
         REVERSE_EVENT: -10,
     }
     reward_sum = 0
@@ -203,7 +219,7 @@ def update_eps(self):
         steps_cycle = self.steps_done % EPS_DECAY
         delta_eps_max = (EPS_START - EPS_END) * 0.9 ** (self.steps_done // EPS_DECAY)
         self.eps = EPS_END + (delta_eps_max) * np.exp(-2. * steps_cycle / EPS_DECAY)
-        self.eps_rb = EPS_START * 0.9 ** (self.steps_done // EPS_DECAY)
+        self.eps_rb = EPS_RB_START * 0.9 ** (self.steps_done // EPS_DECAY)
     else:
         raise NotImplementedError(f"mode {self.eps_mode} not implemented")
 

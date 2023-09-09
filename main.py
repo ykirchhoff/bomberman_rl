@@ -93,13 +93,9 @@ def world_controller(world, n_rounds, *,
 
     world.end()
 
-def main(argv = ["play", "--agents", "basic_agent_1", "--no-gui", "--train", "1", "--n-rounds", "50000", "--scenario", "coin-heaven"]):
-#def main(argv = ["play", "--agents", "basic_agent_1", "--update-interval", "0.5", "--scenario", "coin-heaven"]):
-# final
-#def main(argv = ["play", "--agents", "basic_agent_final", "rule_based_agent", "rule_based_agent", \
-#                 "rule_based_agent", "--no-gui", "--train", "1", "--n-rounds", "50000"]):
-# test final
-#def main(argv = ["play", "--agents", "basic_agent_final", "rule_based_agent", "rule_based_agent", \
+def main(argv = ["play", "--agents", "basic_agent", "rule_based_agent", "rule_based_agent", \
+                 "rule_based_agent", "--no-gui", "--train", "1", "--n-rounds", "50000"]):
+#def main(argv = ["play", "--agents", "basic_agent", "rule_based_agent", "rule_based_agent", \
 #                 "rule_based_agent", "--update-interval", "0.5"]):
     parser = ArgumentParser()
 

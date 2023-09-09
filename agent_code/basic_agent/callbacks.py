@@ -20,6 +20,7 @@ def setup(self):
     if not self.train:
         self.model.load_state_dict(torch.load(self.model_dir/"model_final.pth"))
     self.model.to(self.device)
+    self.model.eval()
     setup_rule_based(self)
 
 

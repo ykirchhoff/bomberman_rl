@@ -96,4 +96,4 @@ def state_to_features(game_state: dict) -> np.array:
     for other_pos in others_pos:
         agent_features[other_pos] = 1
     features = np.stack([field_features, bombs_features, explosion_map, coin_features, agent_features])
-    return torch.tensor(features), torch.tensor([agent_bomb])
+    return torch.tensor(features).to(dtype=torch.float32), torch.tensor([agent_bomb]).to(dtype=torch.float32)

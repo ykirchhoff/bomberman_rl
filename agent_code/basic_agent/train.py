@@ -78,7 +78,6 @@ def setup_training(self):
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
-    reward = reward_from_events(self, events)
     old_img_features, old_binary_features = state_to_features(old_game_state)
     new_img_features, new_binary_features = state_to_features(new_game_state)
     old_field = old_img_features[0]
@@ -93,8 +92,10 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     if torch.isclose(torch.abs(old_nearest_coin-new_nearest_coin), torch.tensor([1/17])):
         if new_nearest_coin < old_nearest_coin:
             events.append(MOVE_TOWARDS)
+            pass
         elif new_nearest_coin > old_nearest_coin:
             events.append(MOVE_AWAY)
+            pass
     action = ACTIONS.index(self_action)
     if self.previous_action is not None:
         if (self_action == ACTIONS[0] and self.previous_action == ACTIONS[2]) or \
@@ -102,9 +103,11 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
                 (self_action == ACTIONS[2] and self.previous_action == ACTIONS[0]) or \
                 (self_action == ACTIONS[3] and self.previous_action == ACTIONS[1]):
             events.append(REVERSE_EVENT)
+    reward = reward_from_events(self, events)
     self.replay_memory.append(Transition(old_img_features, old_binary_features, torch.tensor([action]), \
                                         new_img_features, new_binary_features, torch.tensor([reward])))
     self.total_rewards[-1] += reward
+    self.previous_action = self_action
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):

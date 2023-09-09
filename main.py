@@ -94,7 +94,7 @@ def world_controller(world, n_rounds, *,
     world.end()
 
 def main(argv = ["play", "--agents", "basic_agent", "rule_based_agent", "rule_based_agent", \
-                 "rule_based_agent", "--no-gui", "--train", "1", "--n-rounds", "50000"]):
+                 "rule_based_agent", "--no-gui", "--train", "1", "--n-rounds", "100000"]):
 #def main(argv = ["play", "--agents", "basic_agent", "rule_based_agent", "rule_based_agent", \
 #                 "rule_based_agent", "--update-interval", "0.5"]):
     parser = ArgumentParser()

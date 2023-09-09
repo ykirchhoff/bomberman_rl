@@ -89,7 +89,8 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     new_coin_dist = new_field[new_coins == 1]
     old_nearest_coin = torch.tensor([-1]) if torch.sum(old_coin_dist>0)==0 else torch.min(old_coin_dist[old_coin_dist>0])
     new_nearest_coin = torch.tensor([-1]) if torch.sum(new_coin_dist>0)==0 else torch.min(new_coin_dist[new_coin_dist>0])
-    if torch.abs(old_nearest_coin-new_nearest_coin)==1:
+    # reward only when old and new nearest coin is one step apart
+    if torch.isclose(torch.abs(old_nearest_coin-new_nearest_coin), torch.tensor([1/17])):
         if new_nearest_coin < old_nearest_coin:
             events.append(MOVE_TOWARDS)
         elif new_nearest_coin > old_nearest_coin:

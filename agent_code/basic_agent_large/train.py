@@ -28,7 +28,7 @@ ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
 
 # hyperparameters
-REPLAY_MEMORY_SIZE = 200000
+REPLAY_MEMORY_SIZE = 100000
 BATCH_SIZE = 256
 GAMMA = 0.9
 EPS_START = 0.9
@@ -40,6 +40,7 @@ INITIAL_LR = 1e-3
 ITERATIONS_PER_ROUND = 20
 LONG_UPDATE_EVERY_X = 100
 ITERATIONS_EVERY_X = 500
+UPDATE_AFTER_CYCLE = 1000
 
 # This is only an example!
 Transition = namedtuple('Transition',
@@ -165,11 +166,13 @@ def optimize_model(self):
     if len(self.replay_memory) < ITERATIONS_PER_ROUND*BATCH_SIZE:
         return
     loss_this_round = 0
-    if (self.steps_done + 1) % LONG_UPDATE_EVERY_X == 0:
+    if (self.steps_done + 1) % EPS_DECAY == 0:
+        iterations_this_round = UPDATE_AFTER_CYCLE
+    elif (self.steps_done + 1) % LONG_UPDATE_EVERY_X == 0:
         iterations_this_round = ITERATIONS_EVERY_X
     else:
         iterations_this_round = ITERATIONS_PER_ROUND
-    for _ in range(iterations_this_round):
+    for iteration in range(iterations_this_round):
         transitions = random.sample(self.replay_memory, BATCH_SIZE)
         batch = Transition(*zip(*transitions))
 
@@ -197,11 +200,12 @@ def optimize_model(self):
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), 100)
         self.optimizer.step()
-    target_state_dict = self.target_model.state_dict()
-    policy_state_dict = self.model.state_dict()
-    for key in policy_state_dict:
-        target_state_dict[key] = TAU * policy_state_dict[key] + (1 - TAU) * target_state_dict[key]
-    self.target_model.load_state_dict(target_state_dict)
+        if (iteration + 1) % ITERATIONS_PER_ROUND == 0:
+            target_state_dict = self.target_model.state_dict()
+            policy_state_dict = self.model.state_dict()
+            for key in policy_state_dict:
+                target_state_dict[key] = TAU * policy_state_dict[key] + (1 - TAU) * target_state_dict[key]
+            self.target_model.load_state_dict(target_state_dict)
     self.scheduler.step()
     self.loss_list.append(loss_this_round / iterations_this_round)
 
@@ -221,8 +225,8 @@ def update_eps(self):
     elif self.eps_mode == "cycle":
         # cycling decay of eps over EPS_DECAY steps
         steps_cycle = self.steps_done % EPS_DECAY
-        delta_eps_max = (EPS_START - EPS_END) * 0.9 ** (self.steps_done // EPS_DECAY)
-        self.eps = EPS_END + (delta_eps_max) * np.exp(-2. * steps_cycle / EPS_DECAY)
+        eps_max = EPS_START * 0.9 ** (self.steps_done // EPS_DECAY)
+        self.eps = eps_max * np.exp(-2. * steps_cycle / EPS_DECAY)
         self.eps_rb = EPS_RB_START * 0.9 ** (self.steps_done // EPS_DECAY)
     else:
         raise NotImplementedError(f"mode {self.eps_mode} not implemented")

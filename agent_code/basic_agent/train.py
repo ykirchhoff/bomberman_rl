@@ -19,8 +19,8 @@ from .architectures.networks import MyResNetBinary
 
 
 """
-This agent is a very basic implementation of a reinforcement learning agent using Deep Q Learning.
-It follows mostly the PyTorch tutorial given here: https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
+This agent is a rather basic but very well working implementation of a reinforcement learning agent using Deep Q Learning.
+It is in part adapted from the Pytorch tutorial given here: https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
 """
 
 

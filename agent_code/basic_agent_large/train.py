@@ -20,8 +20,8 @@ from .architectures.networks import MyResNetBinary
 
 
 """
-This agent is a very basic implementation of a reinforcement learning agent using Deep Q Learning.
-It follows mostly the PyTorch tutorial given here: https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
+This agent is a rather basic but very well working implementation of a reinforcement learning agent using Deep Q Learning.
+It is in part adapted from the Pytorch tutorial given here: https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
 """
 
 
@@ -97,12 +97,6 @@ def setup_training(self):
         self.ema_total_rewards = []
         self.ema_rewards_per_step = []
         self.replay_memory = deque(maxlen=REPLAY_MEMORY_SIZE)
-
-
-    training_state = {"steps_done": self.steps_done, "eps": self.epsilons, "loss": self.loss_list, \
-                        "total_rewards": self.total_rewards, "rewards_per_step": self.rewards_per_step, \
-                        "ema_total_rewards": self.ema_total_rewards, "ema_rewards_per_step": self.ema_rewards_per_step}
-
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
@@ -245,7 +239,6 @@ def update_eps(self):
     """
     self.epsilons.append(self.eps)
     self.steps_done += 1
-    # wait for 100 rounds and set eps_rb to False
     if self.eps_mode == "decay":
         self.eps = EPS_END + (EPS_START - EPS_END) * np.exp(-1. * self.steps_done / EPS_DECAY)
         self.eps_rb = self.eps

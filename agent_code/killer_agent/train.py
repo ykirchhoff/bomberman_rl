@@ -99,12 +99,6 @@ def setup_training(self):
         self.replay_memory = deque(maxlen=REPLAY_MEMORY_SIZE)
 
 
-    training_state = {"steps_done": self.steps_done, "eps": self.epsilons, "loss": self.loss_list, \
-                        "total_rewards": self.total_rewards, "rewards_per_step": self.rewards_per_step, \
-                        "ema_total_rewards": self.ema_total_rewards, "ema_rewards_per_step": self.ema_rewards_per_step}
-
-
-
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
     old_img_features, old_binary_features = state_to_features(old_game_state)
     new_img_features, new_binary_features = state_to_features(new_game_state)

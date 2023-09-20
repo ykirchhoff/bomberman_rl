@@ -14,8 +14,7 @@ def setup(self):
     self.eps = 0
     self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     self.model_dir = Path("models")
-    # TODO: add model
-    self.model = None
+    self.model = DQN(24, 6)
     if not self.train:
         self.model.load_state_dict(torch.load(self.model_dir/"model_final.pth"))
     self.model.to(self.device)
@@ -62,14 +61,11 @@ def find_shortest_paths(agent_pos: tuple[int, int], field: np.ndarray) -> np.nda
             if 0 <= nx < rows and 0 <= ny < cols and field[nx, ny] == 0 and dist[nx, ny] == -1:
                 dist[nx][ny] = dist[x][y] + 1
                 queue.append((nx, ny))
-    # normalize positive distances
-    dist[dist > 0] /= rows
     return dist
 
 
 def state_to_features(game_state: dict) -> np.array:
     field = game_state['field']
-    field_features = find_shortest_paths(agent_pos, field)
     bombs = game_state['bombs']
     coins = game_state['coins']
     explosion_map = game_state['explosion_map']
@@ -77,8 +73,10 @@ def state_to_features(game_state: dict) -> np.array:
     others = game_state['others']
     agent_x, agent_y = agent[3]
     agent_bomb = agent[2]
+    field_features = find_shortest_paths((agent_x, agent_y), field)
+
+    # calculate deadly for x steps
     deadly_for = np.zeros_like(field)
-    # calculate deadly for
     for bomb in bombs:
         bomb_x, bomb_y = bomb[0]
         bomb_timer = bomb[1]+1
@@ -106,6 +104,7 @@ def state_to_features(game_state: dict) -> np.array:
                 break
             if deadly_for[bomb_x, current_y] == 0 or bomb_timer < deadly_for[bomb_x, current_y]:
                 deadly_for[bomb_x, current_y] = bomb_timer
+
     safe_to_go = np.where(deadly_for==0, 1, 0)
     for x, y in zip(*np.where(deadly_for>0)):
         way_to_safety = find_shortest_paths((x, y), field)
@@ -113,33 +112,82 @@ def state_to_features(game_state: dict) -> np.array:
         if min_safety_dist < deadly_for[x, y]:
             safe_to_go[x, y] = 1
     safe_to_go[explosion_map>0] = 0
-    # (x-1, y), (x+1, y), (x, y-1), (x, y+1)
-    safe_steps = np.array([safe_to_go[agent_x-1, agent_y], safe_to_go[agent_x+1, agent_y], \
-                           safe_to_go[agent_x, agent_y-1], safe_to_go[agent_x, agent_y+1]])
-    # (x-1, y), (x+1, y), (x, y-1), (x, y+1)
+
+    current_safety = safe_to_go[agent_x, agent_y]
+
+    # (x, y-1), (x+1, y), (x, y+1), (x-1, y)
+    safe_steps = np.array([safe_to_go[agent_x, agent_y-1], safe_to_go[agent_x+1, agent_y], \
+                           safe_to_go[agent_x, agent_y+1], safe_to_go[agent_x-1, agent_y]])
+
+    # is it safe to drop a bomb
+    safe_to_drop = False
+    for x in range(1, 5):
+        current_x = agent_x - x
+        if current_x < 0 or field[current_x, agent_y] == -1:
+            break
+        if x == 4 and field[current_x, agent_y] >= 0:
+            safe_to_drop = True
+            break
+        elif x < 4 and (field[current_x, agent_y-1] >= 0 or field[current_x, agent_y+1] >= 0):
+            safe_to_drop = True
+            break
+    for x in range(1, 5):
+        current_x = agent_x + x
+        if current_x >= field.shape[0] or field[current_x, agent_y] == -1:
+            break
+        if x == 4 and field[current_x, agent_y] >= 0:
+            safe_to_drop = True
+            break
+        elif x < 4 and (field[current_x, agent_y-1] >= 0 or field[current_x, agent_y+1] >= 0):
+            safe_to_drop = True
+            break
+    for y in range(1, 5):
+        current_y = agent_y - y
+        if current_y < 0 or field[agent_x, current_y] == -1:
+            break
+        if y == 4 and field[agent_x, current_y] >= 0:
+            safe_to_drop = True
+            break
+        elif y < 4 and (field[agent_x-1, current_y] >= 0 or field[agent_x+1, current_y] >= 0):
+            safe_to_drop = True
+            break
+    for y in range(1, 5):
+        current_y = agent_y + y
+        if current_y >= field.shape[1] or field[agent_x, current_y] == -1:
+            break
+        if y == 4 and field[agent_x, current_y] >= 0:
+            safe_to_drop = True
+            break
+        elif y < 4 and (field[agent_x-1, current_y] >= 0 or field[agent_x+1, current_y] >= 0):
+            safe_to_drop = True
+            break
+
+    # (x, y-1), (x+1, y), (x, y+1), (x-1, y)
     next_coins = np.full(4, -1)
     for coin in coins:
         coin_path = find_shortest_paths(coin, field)
-        if coin_path[agent_x-1, agent_y] != -1 and (next_coins[0] == -1 or coin_path[agent_x-1, agent_y] < next_coins[0]):
+        if coin_path[agent_x, agent_y-1] != -1 and (next_coins[0] == -1 or coin_path[agent_x-1, agent_y] < next_coins[0]):
             next_coins[0] = coin_path[agent_x-1, agent_y]
         if coin_path[agent_x+1, agent_y] != -1 and (next_coins[1] == -1 or coin_path[agent_x+1, agent_y] < next_coins[1]):
             next_coins[1] = coin_path[agent_x+1, agent_y]
-        if coin_path[agent_x, agent_y-1] != -1 and (next_coins[2] == -1 or coin_path[agent_x, agent_y-1] < next_coins[2]):
+        if coin_path[agent_x, agent_y+1] != -1 and (next_coins[2] == -1 or coin_path[agent_x, agent_y-1] < next_coins[2]):
             next_coins[2] = coin_path[agent_x, agent_y-1]
-        if coin_path[agent_x, agent_y+1] != -1 and (next_coins[3] == -1 or coin_path[agent_x, agent_y+1] < next_coins[3]):
+        if coin_path[agent_x-1, agent_y] != -1 and (next_coins[3] == -1 or coin_path[agent_x, agent_y+1] < next_coins[3]):
             next_coins[3] = coin_path[agent_x, agent_y+1]
-    # (x-1, y), (x+1, y), (x, y-1), (x, y+1)
+
+    # (x, y-1), (x+1, y), (x, y+1), (x-1, y)
     next_agents = np.full(4, -1)
     for other in others:
         other_path = find_shortest_paths(other[3], field)
-        if other_path[agent_x-1, agent_y] != -1 and (next_agents[0] == -1 or other_path[agent_x-1, agent_y] < next_agents[0]):
+        if other_path[agent_x, agent_y-1] != -1 and (next_agents[0] == -1 or other_path[agent_x-1, agent_y] < next_agents[0]):
             next_agents[0] = other_path[agent_x-1, agent_y]
         if other_path[agent_x+1, agent_y] != -1 and (next_agents[1] == -1 or other_path[agent_x+1, agent_y] < next_agents[1]):
             next_agents[1] = other_path[agent_x+1, agent_y]
-        if other_path[agent_x, agent_y-1] != -1 and (next_agents[2] == -1 or other_path[agent_x, agent_y-1] < next_agents[2]):
+        if other_path[agent_x, agent_y+1] != -1 and (next_agents[2] == -1 or other_path[agent_x, agent_y-1] < next_agents[2]):
             next_agents[2] = other_path[agent_x, agent_y-1]
-        if other_path[agent_x, agent_y+1] != -1 and (next_agents[3] == -1 or other_path[agent_x, agent_y+1] < next_agents[3]):
+        if other_path[agent_x-1, agent_y] != -1 and (next_agents[3] == -1 or other_path[agent_x, agent_y+1] < next_agents[3]):
             next_agents[3] = other_path[agent_x, agent_y+1]
+
     # how many crates can be blown up by placing a bomb at this position
     crates_to_blowup = np.zeros_like(field)
     crates = np.where(field == 1)
@@ -164,21 +212,25 @@ def state_to_features(game_state: dict) -> np.array:
             if current_y >= field.shape[1] or field[crate_x, current_y] == -1:
                 break
             crates_to_blowup[crate_x, current_y] += 1
-    # (x-1, y), (x+1, y), (x, y-1), (x, y+1)
+
+    # (x, y-1), (x+1, y), (x, y+1), (x-1, y)
     next_crates = np.full(4, -1)
-    crates_nearby = crates_to_blowup[field_features<=6]
+    crates_nearby = np.where((field_features<=6)&(field_features!=-1), crates_to_blowup, 0)
     for x, y in zip(*np.where(crates_nearby>0)):
         crate_path = find_shortest_paths((x, y), field)
-        crate_path[crate_path!=-1] += 4 - crates_nearby[x, y]
-        if crate_path[agent_x-1, agent_y] != -1 and (next_crates[0] == -1 or crate_path[agent_x-1, agent_y] < next_crates[0]):
+        crate_path[crate_path!=-1] += 10 - crates_nearby[x, y]
+        if crate_path[agent_x, agent_y-1] != -1 and (next_crates[0] == -1 or crate_path[agent_x-1, agent_y] < next_crates[0]):
             next_crates[0] = crate_path[agent_x-1, agent_y]
         if crate_path[agent_x+1, agent_y] != -1 and (next_crates[1] == -1 or crate_path[agent_x+1, agent_y] < next_crates[1]):
             next_crates[1] = crate_path[agent_x+1, agent_y]
-        if crate_path[agent_x, agent_y-1] != -1 and (next_crates[2] == -1 or crate_path[agent_x, agent_y-1] < next_crates[2]):
+        if crate_path[agent_x, agent_y+1] != -1 and (next_crates[2] == -1 or crate_path[agent_x, agent_y-1] < next_crates[2]):
             next_crates[2] = crate_path[agent_x, agent_y-1]
-        if crate_path[agent_x, agent_y+1] != -1 and (next_crates[3] == -1 or crate_path[agent_x, agent_y+1] < next_crates[3]):
+        if crate_path[agent_x-1, agent_y] != -1 and (next_crates[3] == -1 or crate_path[agent_x, agent_y+1] < next_crates[3]):
             next_crates[3] = crate_path[agent_x, agent_y+1]
 
-    # safe_steps, next_coins, next_agents, next_crates
-    features = np.concatenate([safe_steps, next_coins, next_agents, next_crates, agent_x, agent_y, agent_bomb])
+    # (x, y-1), (x+1, y), (x, y+1), (x-1, y)
+    valid_moves = np.array([field_features[agent_x, agent_y-1]>=0, field_features[agent_x+1, agent_y]>=0, \
+                            field_features[agent_x, agent_y+1]>=0, field_features[agent_x-1, agent_y]>=0])
+
+    features = np.concatenate([safe_steps, next_coins, next_agents, next_crates, valid_moves, [agent_x, agent_y, current_safety, agent_bomb&safe_to_drop]])
     return torch.tensor(features).to(dtype=torch.float32)

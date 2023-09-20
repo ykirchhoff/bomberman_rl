@@ -4,6 +4,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
+from pathlib import Path
 import pickle
 import random
 from typing import List
@@ -55,8 +56,6 @@ def setup_training(self):
     self.model_dir.mkdir(exist_ok=True)
     self.model_dir_every_x = self.model_dir / "every_x"
     self.model_dir_every_x.mkdir(exist_ok=True)
-    self.replay_memory = deque(maxlen=REPLAY_MEMORY_SIZE)
-    self.steps_done = 0
     self.eps = EPS_START
     self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=INITIAL_LR, amsgrad=True)
     self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=5000, gamma=0.9)
@@ -65,17 +64,45 @@ def setup_training(self):
     self.target_model.load_state_dict(self.model.state_dict())
     self.target_model.to(self.device)
     self.criterion = nn.SmoothL1Loss()
-    self.total_rewards = [0]
-    self.ema_total_rewards = []
-    self.rewards_per_step = []
-    self.ema_rewards_per_step = []
-    self.epsilons = []
     self.eps_mode = "cycle"
     self.eps_rb = EPS_RB_START
-    self.loss_list = []
     self.previous_action = None
     self.model.train()
     self.target_model.eval()
+    if (self.model_dir/"model_final.pth").is_file() and (self.model_dir/"target_model_final.pth").is_file() and \
+        Path("logs/training_state.pickle").is_file():
+        self.logger.info("loading model")
+        self.model.load_state_dict(torch.load(self.model_dir/"model_final.pth"))
+        self.target_model.load_state_dict(torch.load(self.model_dir/"target_model_final.pth"))
+        with open("logs/training_state.pickle", "rb") as f:
+            training_state = pickle.load(f)
+        self.steps_done = training_state["steps_done"]
+        self.epsilons = training_state["eps"]
+        self.loss_list = training_state["loss"]
+        self.total_rewards = training_state["total_rewards"]
+        self.rewards_per_step = training_state["rewards_per_step"]
+        self.ema_total_rewards = training_state["ema_total_rewards"]
+        self.ema_rewards_per_step = training_state["ema_rewards_per_step"]
+        with open("logs/deque.pickle", "rb") as f:
+            self.replay_memory = pickle.load(f)
+        #set scheduler to correct step
+        for _ in range(self.steps_done):
+            self.scheduler.step()
+    else:
+        self.steps_done = 0
+        self.epsilons = []
+        self.loss_list = []
+        self.total_rewards = [0]
+        self.rewards_per_step = []
+        self.ema_total_rewards = []
+        self.ema_rewards_per_step = []
+        self.replay_memory = deque(maxlen=REPLAY_MEMORY_SIZE)
+
+
+    training_state = {"steps_done": self.steps_done, "eps": self.epsilons, "loss": self.loss_list, \
+                        "total_rewards": self.total_rewards, "rewards_per_step": self.rewards_per_step, \
+                        "ema_total_rewards": self.ema_total_rewards, "ema_rewards_per_step": self.ema_rewards_per_step}
+
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
@@ -265,3 +292,5 @@ def plot_and_save(self):
                           "ema_total_rewards": self.ema_total_rewards, "ema_rewards_per_step": self.ema_rewards_per_step}
         with open("logs/training_state.pickle", "wb") as f:
             pickle.dump(training_state, f)
+        with open("logs/deque.pickle", "wb") as f:
+            pickle.dump(self.replay_memory, f)

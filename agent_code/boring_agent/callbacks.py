@@ -14,7 +14,7 @@ def setup(self):
     self.eps = 0
     self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     self.model_dir = Path("models")
-    self.model = DQN(24, 6)
+    self.model = DQN(25, 6)
     if not self.train:
         self.model.load_state_dict(torch.load(self.model_dir/"model_final.pth"))
     self.model.to(self.device)
@@ -227,10 +227,12 @@ def state_to_features(game_state: dict) -> np.array:
             next_crates[2] = crate_path[agent_x, agent_y-1]
         if crate_path[agent_x-1, agent_y] != -1 and (next_crates[3] == -1 or crate_path[agent_x, agent_y+1] < next_crates[3]):
             next_crates[3] = crate_path[agent_x, agent_y+1]
+    current_crates = 10 - crates_nearby[agent_x, agent_y]
 
     # (x, y-1), (x+1, y), (x, y+1), (x-1, y)
     valid_moves = np.array([field_features[agent_x, agent_y-1]>=0, field_features[agent_x+1, agent_y]>=0, \
                             field_features[agent_x, agent_y+1]>=0, field_features[agent_x-1, agent_y]>=0])
 
-    features = np.concatenate([safe_steps, next_coins, next_agents, next_crates, valid_moves, [agent_x, agent_y, current_safety, agent_bomb&safe_to_drop]])
+    features = np.concatenate([safe_steps, next_coins, next_agents, next_crates, valid_moves, \
+                               [agent_x, agent_y, current_safety, current_crates, agent_bomb&safe_to_drop]])
     return torch.tensor(features).to(dtype=torch.float32)

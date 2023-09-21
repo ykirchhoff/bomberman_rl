@@ -59,7 +59,7 @@ def setup_training(self):
     self.eps = EPS_START
     self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=INITIAL_LR, amsgrad=True)
     self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=5000, gamma=0.9)
-    self.target_model = DQN(24, 6)
+    self.target_model = DQN(25, 6)
     self.target_model.load_state_dict(self.model.state_dict())
     self.target_model.to(self.device)
     self.criterion = nn.SmoothL1Loss()
@@ -79,20 +79,6 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     old_features = state_to_features(old_game_state)
     new_features = state_to_features(new_game_state)
     action = ACTIONS.index(self_action)
-    old_next_coins = old_features[4:8]
-    old_nearest_coin = np.argmin(old_next_coins)
-    old_safe_steps = old_features[:4]
-    old_current_safety = old_features[-2]
-    # 'UP', 'RIGHT', 'DOWN', 'LEFT'
-    if self_action == ACTIONS[old_nearest_coin]:
-        events.append(MOVE_TOWARDS)
-    elif ACTIONS.index(self_action) < 4:
-        events.append(MOVE_AWAY)
-    if (ACTIONS.index(self_action) < 4 and old_safe_steps[ACTIONS.index(self_action)] == 0) or \
-        (old_current_safety == 0 and ACTIONS.index(self_action) >= 4):
-        events.append(UNSAFE_STEP)
-    if old_features[-1] == 0 and self_action == ACTIONS[-1]:
-        events.append(ILLEGAL_BOMB)
     if self.previous_action is not None:
         if (self_action == ACTIONS[0] and self.previous_action == ACTIONS[2]) or \
                 (self_action == ACTIONS[1] and self.previous_action == ACTIONS[3]) or \
@@ -146,10 +132,6 @@ def reward_from_events(self, events: List[str]) -> int:
         e.INVALID_ACTION: -100,
         e.WAITED: -10,
         REVERSE_EVENT: -20,
-        MOVE_AWAY: -15,
-        MOVE_TOWARDS: 10,
-        UNSAFE_STEP: -50,
-        ILLEGAL_BOMB: -50
     }
     reward_sum = 0
     for event in events:

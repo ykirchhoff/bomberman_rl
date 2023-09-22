@@ -18,7 +18,7 @@ def setup(self):
     self.model = MyResNetBinary(in_channels=5, num_actions=len(ACTIONS), depth=3, num_base_channels=32, num_max_channels=512,
                                 blocks_per_layer=2, num_binary=1)
     if not self.train:
-        self.model.load_state_dict(torch.load(self.model_dir/"model_final.pth"))
+        self.model.load_state_dict(torch.load(self.model_dir/"model_final.pth", map_location=self.device))
     self.model.to(self.device)
     self.model.eval()
     setup_rule_based(self)

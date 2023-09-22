@@ -16,7 +16,7 @@ def setup(self):
     self.model_dir = Path("models")
     self.model = DQN(25, 6)
     if not self.train:
-        self.model.load_state_dict(torch.load(self.model_dir/"model_final.pth"))
+        self.model.load_state_dict(torch.load(self.model_dir/"model_final.pth", map_location=self.device))
     self.model.to(self.device)
     self.model.eval()
 

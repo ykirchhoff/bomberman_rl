@@ -72,8 +72,8 @@ def setup_training(self):
     if (self.model_dir/"model_final.pth").is_file() and (self.model_dir/"target_model_final.pth").is_file() and \
         Path("logs/training_state.pickle").is_file():
         self.logger.info("loading model")
-        self.model.load_state_dict(torch.load(self.model_dir/"model_final.pth"))
-        self.target_model.load_state_dict(torch.load(self.model_dir/"target_model_final.pth"))
+        self.model.load_state_dict(torch.load(self.model_dir/"model_final.pth", map_location=self.device))
+        self.target_model.load_state_dict(torch.load(self.model_dir/"target_model_final.pth", map_location=self.device))
         with open("logs/training_state.pickle", "rb") as f:
             training_state = pickle.load(f)
         self.steps_done = training_state["steps_done"]

@@ -174,23 +174,23 @@ def state_to_features(game_state: dict) -> np.array:
     crates_to_blowup[field_features<0] = 0
 
     # (x, y), (x, y-1), (x+1, y), (x, y+1), (x-1, y)
-    crates_nearby = np.zeros(5)
+    crates_nearby = np.zeros(5, dtype=float)
     crates_nearby[0] = crates_to_blowup[agent_x, agent_y]
-    crates_nearby[1] = crates_to_blowup[agent_x, agent_y-1]
-    crates_nearby[2] = crates_to_blowup[agent_x+1, agent_y]
-    crates_nearby[3] = crates_to_blowup[agent_x, agent_y+1]
-    crates_nearby[4] = crates_to_blowup[agent_x-1, agent_y]
+    crates_nearby[1] = crates_to_blowup[agent_x, agent_y-1]*0.9
+    crates_nearby[2] = crates_to_blowup[agent_x+1, agent_y]*0.9
+    crates_nearby[3] = crates_to_blowup[agent_x, agent_y+1]*0.9
+    crates_nearby[4] = crates_to_blowup[agent_x-1, agent_y]*0.9
     
     for x, y in zip(*np.where(crates_to_blowup>0)):
         crate_path = find_shortest_paths((x, y), field)
-        if crate_path[agent_x, agent_y-1] != -1 and crates_to_blowup[x, y] - crate_path[agent_x, agent_y-1] > crates_nearby[1]:
-            crates_nearby[1] = crates_to_blowup[x, y] - crate_path[agent_x, agent_y-1]
-        if crate_path[agent_x+1, agent_y] != -1 and crates_to_blowup[x, y] - crate_path[agent_x+1, agent_y] > crates_nearby[2]:
-            crates_nearby[2] = crates_to_blowup[x, y] - crate_path[agent_x+1, agent_y]
-        if crate_path[agent_x, agent_y+1] != -1 and crates_to_blowup[x, y] - crate_path[agent_x, agent_y+1] > crates_nearby[3]:
-            crates_nearby[3] = crates_to_blowup[x, y] - crate_path[agent_x, agent_y+1]
-        if crate_path[agent_x-1, agent_y] != -1 and crates_to_blowup[x, y] - crate_path[agent_x-1, agent_y] > crates_nearby[4]:
-            crates_nearby[4] = crates_to_blowup[x, y] - crate_path[agent_x-1, agent_y]
+        if crate_path[agent_x, agent_y-1] != -1 and crates_to_blowup[x, y] * 0.9 ** (1 + crate_path[agent_x, agent_y-1]) > crates_nearby[1]:
+            crates_nearby[1] = crates_to_blowup[x, y] * 0.9 ** (1 + crate_path[agent_x, agent_y-1])
+        if crate_path[agent_x+1, agent_y] != -1 and crates_to_blowup[x, y] * 0.9 ** (1 + crate_path[agent_x+1, agent_y]) > crates_nearby[2]:
+            crates_nearby[2] = crates_to_blowup[x, y] * 0.9 ** (1 + crate_path[agent_x+1, agent_y])
+        if crate_path[agent_x, agent_y+1] != -1 and crates_to_blowup[x, y] * 0.9 ** (1 + crate_path[agent_x, agent_y+1]) > crates_nearby[3]:
+            crates_nearby[3] = crates_to_blowup[x, y] * 0.9 ** (1 + crate_path[agent_x, agent_y+1])
+        if crate_path[agent_x-1, agent_y] != -1 and crates_to_blowup[x, y] * 0.9 ** (1 + crate_path[agent_x-1, agent_y]) > crates_nearby[4]:
+            crates_nearby[4] = crates_to_blowup[x, y] * 0.9 ** (1 + crate_path[agent_x-1, agent_y])
 
     # (x, y-1), (x+1, y), (x, y+1), (x-1, y)
     valid_steps = np.array([field_features[agent_x, agent_y-1], field_features[agent_x+1, agent_y], \

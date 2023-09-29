@@ -105,7 +105,7 @@ venv.bak/
 
 .idea
 logs
-models
+every_x
 screenshots/*.png
 screenshots/*.mp4
 screenshots/*.webm
